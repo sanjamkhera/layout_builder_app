@@ -160,11 +160,12 @@ class _CanvasWidgetState extends State<CanvasWidget> {
             ),
             // Interactive viewer for zoom and pan
             InteractiveViewer(
+              constrained: false, // Allow child to be larger than viewport
               transformationController: _transformationController,
               minScale: _minScale,
               maxScale: _maxScale,
               panEnabled: !_isWidgetInteracting, // Disable pan when widgets are being interacted with
-              boundaryMargin: const EdgeInsets.all(20),
+              boundaryMargin: const EdgeInsets.all(double.infinity), // Allow panning beyond canvas edges
               child: Container(
                 key: _canvasKey,
                 width: _fixedCanvasWidth,
@@ -234,11 +235,12 @@ class _CanvasWidgetState extends State<CanvasWidget> {
             ),
             // Interactive viewer for zoom and pan
             InteractiveViewer(
+              constrained: false, // Allow child to be larger than viewport
               transformationController: _transformationController,
               minScale: _minScale,
               maxScale: _maxScale,
               panEnabled: !_isWidgetInteracting, // Disable pan when widgets are being interacted with
-              boundaryMargin: const EdgeInsets.all(20),
+              boundaryMargin: const EdgeInsets.all(double.infinity), // Allow panning beyond canvas edges
               child: Container(
                 key: _canvasKey,
                 width: _fixedCanvasWidth,
