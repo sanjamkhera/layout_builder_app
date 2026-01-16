@@ -32,7 +32,6 @@ class _DraggableCanvasWidgetState extends State<DraggableCanvasWidget> {
   bool _isResizing = false; // Track if any handle is being resized
   Offset? _lastDragPosition; // Track last drag position
   Offset? _dragOffset; // Track drag offset for preview
-  static const double _dragInset = 15.0; // Inset from edges for draggable area
 
   // Check if a point is within any handle area
   // Note: localPoint is relative to the widget, handles can extend beyond widget bounds
@@ -69,22 +68,6 @@ class _DraggableCanvasWidgetState extends State<DraggableCanvasWidget> {
     return false;
   }
 
-  // Check if a point is in the draggable area (inset from edges)
-  bool _isPointInDraggableArea(Offset localPoint) {
-    final w = widget.widget.width;
-    final h = widget.widget.height;
-    
-    // Create an inset rect - only inner area is draggable
-    final draggableRect = Rect.fromLTWH(
-      _dragInset,
-      _dragInset,
-      w - (_dragInset * 2),
-      h - (_dragInset * 2),
-    );
-    
-    return draggableRect.contains(localPoint);
-  }
-
   void _onPanStart(DragStartDetails details) {
     // Check if pointer is on a handle - if so, don't start dragging
     final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
@@ -92,15 +75,12 @@ class _DraggableCanvasWidgetState extends State<DraggableCanvasWidget> {
     
     final localPoint = renderBox.globalToLocal(details.globalPosition);
     
-    // Don't start drag if on handle
+    // Don't start drag if on handle (handles are for resizing)
     if (_isPointOnHandle(localPoint)) {
       return;
     }
     
-    // Only allow dragging if point is in the inner draggable area (not near edges)
-    if (!_isPointInDraggableArea(localPoint)) {
-      return;
-    }
+    // Allow dragging from anywhere on the widget (except handles)
     
     // Calculate initial drag offset from widget's top-left corner
     final canvasRenderBox = widget.canvasKey.currentContext?.findRenderObject() as RenderBox?;
@@ -136,10 +116,6 @@ class _DraggableCanvasWidgetState extends State<DraggableCanvasWidget> {
     final canvasRenderBox = widget.canvasKey.currentContext?.findRenderObject() as RenderBox?;
     if (canvasRenderBox == null) return;
     
-    // Use fixed canvas dimensions (1920x1080) for bounds checking
-    const fixedCanvasWidth = 1920.0;
-    const fixedCanvasHeight = 1080.0;
-    
     // Convert global position to canvas coordinates
     // globalToLocal already accounts for InteractiveViewer transformation (zoom + pan)
     final canvasLocalPos = canvasRenderBox.globalToLocal(details.globalPosition);
@@ -150,14 +126,15 @@ class _DraggableCanvasWidgetState extends State<DraggableCanvasWidget> {
     final newX = canvasX - _dragOffset!.dx;
     final newY = canvasY - _dragOffset!.dy;
     
-    // Clamp to fixed canvas bounds: 
-    // - Left edge: 0
-    // - Right edge: fixedCanvasWidth - widgetWidth (widget shouldn't exceed canvas)
-    // - Top edge: 0
-    // - Bottom edge: fixedCanvasHeight - widgetHeight
+    // Clamp to fixed canvas bounds (1920x1080) - prevent widgets from going past bounds
+    const fixedCanvasWidth = 1920.0;
+    const fixedCanvasHeight = 1080.0;
+    
+    // Calculate maximum allowed positions to keep widget within canvas bounds
     final maxX = fixedCanvasWidth - widget.widget.width;
     final maxY = fixedCanvasHeight - widget.widget.height;
     
+    // Clamp position to canvas bounds (0 to maxX/Y)
     final clampedX = newX.clamp(0.0, maxX);
     final clampedY = newY.clamp(0.0, maxY);
     

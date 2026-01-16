@@ -111,20 +111,20 @@ lib/
 
 ---
 
-### PART 4: Resize & Layout Interaction ⏳ **PENDING**
+### PART 4: Resize & Layout Interaction ✅ **COMPLETED**
 
 **Goal:** Allow user to resize and manipulate widgets
 
-**Tasks:**
-- ⏳ Add resize handles (corners / edges)
-- ⏳ Update width & height on drag
-- ⏳ Maintain minimum size constraints
-- ⏳ Update layout state via BLoC
-- ⏳ Re-render canvas efficiently
+**Completed:**
+- ✅ Added resize handles (8 handles: 4 corners + 4 edges)
+- ✅ Update width & height on drag (real-time resize updates)
+- ✅ Maintain minimum size constraints (50px minimum)
+- ✅ Update layout state via BLoC (ResizeWidgetEvent + MoveWidgetEvent)
+- ✅ Re-render canvas efficiently (BlocBuilder for state-driven updates)
 
 **Deliverables:**
-- ⏳ Resizable widgets
-- ⏳ Smooth drag + resize UX
+- ✅ Resizable widgets
+- ✅ Smooth drag + resize UX
 
 ---
 

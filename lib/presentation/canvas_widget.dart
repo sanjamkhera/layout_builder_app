@@ -27,8 +27,8 @@ class _CanvasWidgetState extends State<CanvasWidget> {
   // Zoom controller for InteractiveViewer
   final TransformationController _transformationController = TransformationController();
   
-  // Min and max zoom levels - allow zooming out enough to see full canvas on small screens
-  static const double _minScale = 0.1; // Can zoom out to 10% (allows seeing full canvas on phones)
+  // Min and max zoom levels
+  static const double _minScale = 1.0; // Minimum zoom is 1:1 (actual size, cannot zoom out)
   static const double _maxScale = 3.0;
   
   // Track if we've initialized the canvas to appear at 1:1 scale (1920x1080)
@@ -165,7 +165,7 @@ class _CanvasWidgetState extends State<CanvasWidget> {
               minScale: _minScale,
               maxScale: _maxScale,
               panEnabled: !_isWidgetInteracting, // Disable pan when widgets are being interacted with
-              boundaryMargin: const EdgeInsets.all(double.infinity), // Allow panning beyond canvas edges
+              // No boundaryMargin - restricts panning to canvas bounds (1920x1080)
               child: Container(
                 key: _canvasKey,
                 width: _fixedCanvasWidth,
@@ -240,7 +240,7 @@ class _CanvasWidgetState extends State<CanvasWidget> {
               minScale: _minScale,
               maxScale: _maxScale,
               panEnabled: !_isWidgetInteracting, // Disable pan when widgets are being interacted with
-              boundaryMargin: const EdgeInsets.all(double.infinity), // Allow panning beyond canvas edges
+              // No boundaryMargin - restricts panning to canvas bounds (1920x1080)
               child: Container(
                 key: _canvasKey,
                 width: _fixedCanvasWidth,
@@ -312,9 +312,17 @@ class _CanvasWidgetState extends State<CanvasWidget> {
     // globalToLocal automatically accounts for InteractiveViewer transformation
     final canvasLocalPos = canvasRenderBox.globalToLocal(details.offset);
     
-    // Canvas coordinates (already accounts for zoom and pan)
-    final x = canvasLocalPos.dx.clamp(0.0, _fixedCanvasWidth - 100); // 100 is widget width
-    final y = canvasLocalPos.dy.clamp(0.0, _fixedCanvasHeight - 100); // 100 is widget height
+    // Clamp to fixed canvas bounds (1920x1080) - prevent widgets from being dropped outside bounds
+    const defaultWidgetWidth = 100.0; // Default widget width when dropped
+    const defaultWidgetHeight = 100.0; // Default widget height when dropped
+    
+    // Calculate maximum allowed positions to keep widget within canvas bounds
+    final maxX = _fixedCanvasWidth - defaultWidgetWidth;
+    final maxY = _fixedCanvasHeight - defaultWidgetHeight;
+    
+    // Clamp position to canvas bounds (0 to maxX/Y)
+    final x = canvasLocalPos.dx.clamp(0.0, maxX);
+    final y = canvasLocalPos.dy.clamp(0.0, maxY);
 
     // Send AddWidgetEvent to BLoC with actual drop position
     context.read<LayoutBloc>().add(
