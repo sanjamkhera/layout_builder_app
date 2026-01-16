@@ -90,19 +90,24 @@ lib/
 
 ---
 
-### PART 3: Canvas & Drag-Drop System ⏳ **IN PROGRESS**
+### PART 3: Canvas & Drag-Drop System ✅ **COMPLETED**
 
 **Goal:** Enable widget placement
 
-**Tasks:**
-- ⏳ Create single canvas widget
-- ⏳ Widget palette side menu (A, B, C, D)
-- ⏳ Drag source from palette
-- ⏳ Drop target on canvas
+**Completed:**
+- ✅ Created single canvas widget (`CanvasWidget`)
+- ✅ Widget palette side menu with draggable widgets (A, B, C, D)
+- ✅ Drag source from palette (`Draggable<String>`)
+- ✅ Drop target on canvas (`DragTarget<String>`)
+- ✅ Captures actual drop position (not just center)
+- ✅ Widgets are draggable on canvas (can be moved around)
+- ✅ BLoC integration (sends AddWidgetEvent and MoveWidgetEvent)
+- ✅ Initial load on screen open (LoadLayoutsEvent)
 
 **Deliverables:**
-- ⏳ Widgets can be added via drag & drop
-- ⏳ All widgets rendered in one panel
+- ✅ Widgets can be added via drag & drop
+- ✅ All widgets rendered in one panel
+- ✅ Widgets can be moved around on canvas
 
 ---
 

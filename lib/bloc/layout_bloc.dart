@@ -47,8 +47,18 @@ class LayoutBloc extends Bloc<LayoutEvent, LayoutState> {
     AddWidgetEvent event,
     Emitter<LayoutState> emit,
   ) async {
-    final activeLayout = state.activeLayout;
-    if (activeLayout == null) return;
+    print('🎯 BLoC: AddWidgetEvent received - type: ${event.type}, x: ${event.x}, y: ${event.y}');
+    
+    // Create new layout if it doesn't exist
+    var activeLayout = state.activeLayout;
+    if (activeLayout == null) {
+      print('📝 Creating new layout for tab: ${state.activeTabId}');
+      activeLayout = LayoutModel(
+        tabId: state.activeTabId,
+        tabName: 'Layout ${state.activeTabId}',
+        widgets: [],
+      );
+    }
 
     final newWidget = WidgetModel(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -59,12 +69,15 @@ class LayoutBloc extends Bloc<LayoutEvent, LayoutState> {
       height: 100, // Default height
     );
 
+    print('✨ Creating widget: ${newWidget.id}, type: ${newWidget.type}');
+
     final updatedWidgets = [...activeLayout.widgets, newWidget];
     final updatedLayout = activeLayout.copyWith(widgets: updatedWidgets);
 
     final updatedLayouts = Map<String, LayoutModel>.from(state.layouts);
     updatedLayouts[state.activeTabId] = updatedLayout;
 
+    print('💾 Emitting new state with ${updatedWidgets.length} widgets');
     emit(state.copyWith(layouts: updatedLayouts));
 
     // Auto-save after adding widget
