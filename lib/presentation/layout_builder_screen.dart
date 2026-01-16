@@ -151,8 +151,16 @@ class _DraggableWidgetItem extends StatelessWidget {
 }
 
 /// Canvas Widget - Where widgets are placed and rendered
-class CanvasWidget extends StatelessWidget {
+class CanvasWidget extends StatefulWidget {
   const CanvasWidget({super.key});
+
+  @override
+  State<CanvasWidget> createState() => _CanvasWidgetState();
+}
+
+class _CanvasWidgetState extends State<CanvasWidget> {
+  // GlobalKey to reference the canvas container for position calculations
+  final GlobalKey _canvasKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
@@ -256,6 +264,7 @@ class CanvasWidget extends StatelessWidget {
           },
           builder: (context, candidateData, rejectedData) {
             return Container(
+              key: _canvasKey, // Add key to canvas container
               color: Colors.white,
               child: Stack(
                 children: [
@@ -264,7 +273,10 @@ class CanvasWidget extends StatelessWidget {
                     return Positioned(
                       left: widget.x,
                       top: widget.y,
-                      child: _DraggableCanvasWidget(widget: widget),
+                      child: _DraggableCanvasWidget(
+                        widget: widget,
+                        canvasKey: _canvasKey, // Pass key to widget
+                      ),
                     );
                   }).toList(),
                 ],
@@ -280,13 +292,46 @@ class CanvasWidget extends StatelessWidget {
 /// Draggable widget on canvas - allows moving widgets around
 class _DraggableCanvasWidget extends StatelessWidget {
   final WidgetModel widget;
+  final GlobalKey canvasKey;
 
-  const _DraggableCanvasWidget({required this.widget});
+  const _DraggableCanvasWidget({
+    required this.widget,
+    required this.canvasKey,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Draggable<WidgetModel>(
       data: widget, // Pass widget data when dragging
+      onDragEnd: (details) {
+        // Get the canvas container's RenderBox using the GlobalKey
+        final canvasRenderBox = canvasKey.currentContext?.findRenderObject() as RenderBox?;
+        if (canvasRenderBox == null) {
+          print('❌ Could not find canvas RenderBox');
+          return;
+        }
+        
+        // Convert global drop position to local canvas coordinates
+        final localPosition = canvasRenderBox.globalToLocal(details.offset);
+        
+        // Adjust for widget center (so widget center aligns with drop position)
+        final newX = localPosition.dx - (widget.width / 2);
+        final newY = localPosition.dy - (widget.height / 2);
+        
+        // Ensure position is not negative
+        final clampedX = newX < 0 ? 0.0 : newX;
+        final clampedY = newY < 0 ? 0.0 : newY;
+        
+        // Send MoveWidgetEvent to BLoC
+        context.read<LayoutBloc>().add(
+              MoveWidgetEvent(
+                widgetId: widget.id,
+                newX: clampedX,
+                newY: clampedY,
+              ),
+            );
+        print('🔄 MoveWidgetEvent sent: ${widget.id} to ($clampedX, $clampedY)');
+      },
       feedback: Material(
         child: Container(
           width: widget.width,
