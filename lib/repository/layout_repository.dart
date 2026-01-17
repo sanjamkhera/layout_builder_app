@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/layout_model.dart';
 
 /// Repository that handles all Firestore operations for layouts
@@ -16,12 +17,18 @@ class LayoutRepository {
   LayoutRepository({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
 
-  /// Get user ID (for now, using a placeholder)
-  /// TODO: Replace with actual user authentication
+  /// Get user ID from Firebase Authentication
+  /// 
+  /// Returns the current authenticated user's unique ID.
+  /// If no user is authenticated, throws an exception.
   String _getUserId() {
-    // For now, using a fixed user ID
-    // Later, this will come from Firebase Auth
-    return 'user1';
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception(
+        'User not authenticated. Please ensure anonymous authentication is enabled.',
+      );
+    }
+    return user.uid; // Unique user ID (e.g., "a7K9mP2xQyZ1...")
   }
 
   /// Fetch all layouts for the current user from Firestore

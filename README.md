@@ -76,6 +76,10 @@ lib/
   - `saveLayout()` - saves a layout to Firestore
   - `saveAllLayouts()` - saves multiple layouts at once
 - ✅ Created test screen to verify Firestore sync
+- ✅ Implemented user identification with Firebase Anonymous Authentication
+  - Each device gets unique user ID automatically
+  - User ID persists across app restarts
+  - Complete data isolation between users/devices
 - ⚠️ Initial load on screen open (will be implemented in Part 3 with UI)
 
 **Deliverables:**
@@ -152,6 +156,7 @@ lib/
 - **flutter_bloc** - State management
 - **equatable** - Value equality for BLoC
 - **Firebase Core** - Firebase initialization
+- **Firebase Authentication** - User identification (Anonymous Auth)
 - **Cloud Firestore** - Database for layout persistence
 
 ---
@@ -163,6 +168,7 @@ dependencies:
   flutter_bloc: ^8.1.3
   equatable: ^2.0.5
   firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
   cloud_firestore: ^5.4.4
 ```
 
@@ -209,9 +215,19 @@ dependencies:
 ### Repository Pattern
 
 **LayoutRepository**:
-- `fetchLayouts()` - Loads all layouts from Firestore
-- `saveLayout()` - Saves a layout to Firestore
+- `fetchLayouts()` - Loads all layouts from Firestore (per user)
+- `saveLayout()` - Saves a layout to Firestore (per user)
+- `_getUserId()` - Gets unique user ID from Firebase Authentication
 - Handles JSON conversion (models ↔ Firestore)
+
+### User Identification
+
+**Firebase Anonymous Authentication**:
+- Each device automatically gets a unique user ID on app startup
+- User ID persists across app restarts (stored locally)
+- No UI required - authentication happens automatically in the background
+- Each user's layouts are stored in a separate Firestore document: `layouts/{userId}`
+- Provides complete data isolation between users/devices
 
 ---
 
@@ -235,6 +251,18 @@ dependencies:
    ```bash
    flutter pub get
    ```
+
+3. **Enable Anonymous Authentication in Firebase Console**
+   
+   Before running the app, you must enable Anonymous Authentication:
+   
+   1. Go to [Firebase Console](https://console.firebase.google.com/)
+   2. Select your project: `layout-builder-app`
+   3. Navigate to: **Authentication** → **Sign-in method**
+   4. Click on **Anonymous** provider
+   5. Enable it and click **Save**
+   
+   This allows the app to automatically create unique user IDs for each device.
 
 3. **Run the app**
    
@@ -296,17 +324,33 @@ A test screen is available at `lib/presentation/test_screen.dart` to verify:
 - **Multiple Layouts**: Each tab represents a separate layout
 - **Auto-save**: Layouts are automatically saved to Firestore on changes
 - **Persistence**: Layouts persist across app restarts via Firestore
+- **User Identification**: Each device gets a unique user ID via Firebase Anonymous Authentication
+- **Data Isolation**: Each user's layouts are stored separately in Firestore (no data sharing between users)
 
 ---
 
 ## 🔄 Data Flow
 
-1. App loads → Fetch layouts from Firestore
-2. Active tab layout rendered on canvas
-3. User drags/resizes widgets
-4. LayoutBloc updates state
-5. Updated JSON saved to Firestore
-6. On revisit → Layout restored from Firestore
+1. App loads → Firebase initializes → Anonymous authentication (creates unique user ID)
+2. Fetch layouts from Firestore using user ID → `layouts/{userId}`
+3. Active tab layout rendered on canvas
+4. User drags/resizes widgets
+5. LayoutBloc updates state
+6. Updated JSON saved to Firestore (under user's document)
+7. On revisit → Layout restored from Firestore using same user ID
+
+**Firestore Structure:**
+```
+layouts/
+  ├── {user1-uid}/     # User 1's layouts
+  │   ├── tab1: {...}
+  │   └── tab2: {...}
+  ├── {user2-uid}/     # User 2's layouts
+  │   ├── tab1: {...}
+  │   └── tab3: {...}
+  └── {user3-uid}/     # User 3's layouts
+      └── tab1: {...}
+```
 
 ---
 
