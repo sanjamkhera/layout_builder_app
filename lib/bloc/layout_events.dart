@@ -100,3 +100,27 @@ class CreateTabEvent extends LayoutEvent {
   @override
   List<Object?> get props => [tabId, tabName];
 }
+
+/// Event: Delete a tab/layout
+class DeleteTabEvent extends LayoutEvent {
+  final String tabId;
+
+  const DeleteTabEvent({required this.tabId});
+
+  @override
+  List<Object?> get props => [tabId];
+}
+
+/// Event: Rename a tab/layout
+class RenameTabEvent extends LayoutEvent {
+  final String tabId;
+  final String newName;
+
+  const RenameTabEvent({
+    required this.tabId,
+    required this.newName,
+  });
+
+  @override
+  List<Object?> get props => [tabId, newName];
+}

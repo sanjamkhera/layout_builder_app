@@ -28,7 +28,9 @@ class LayoutRepository {
         'User not authenticated. Please ensure anonymous authentication is enabled.',
       );
     }
-    return user.uid; // Unique user ID (e.g., "a7K9mP2xQyZ1...")
+    final userId = user.uid;
+    print('🔑 Repository: Using user ID: $userId');
+    return userId; // Unique user ID (e.g., "a7K9mP2xQyZ1...")
   }
 
   /// Fetch all layouts for the current user from Firestore
@@ -39,9 +41,10 @@ class LayoutRepository {
     try {
       // Get the user's document from Firestore
       // Collection: "layouts"
-      // Document ID: userId (e.g., "user1")
+      // Document ID: userId (e.g., "a7K9mP2xQyZ1...")
       final userId = _getUserId();
       final docRef = _firestore.collection(_collectionName).doc(userId);
+      print('📥 Fetching layouts from: $_collectionName/$userId');
 
       // Get the document snapshot (the data)
       final docSnapshot = await docRef.get();
@@ -91,14 +94,19 @@ class LayoutRepository {
       final layoutJson = layout.toJson();
 
       // Update the document
-      // Using update() with field path to update just this tab
+      // Using set() with merge: true to update just this tab without overwriting others
       // Structure: { "tabId": { layout data } }
+      // Firestore path: layouts/{userId}/{tabId}
       await docRef.set(
         {layout.tabId: layoutJson},
         SetOptions(merge: true), // Merge with existing data (don't overwrite other tabs)
       );
+      
+      print('💾 Saved layout "${layout.tabName}" (${layout.tabId}) to Firestore');
+      print('   📍 Path: $_collectionName/$userId/${layout.tabId}');
     } catch (e) {
       // If something goes wrong, throw error (BLoC will handle it)
+      print('❌ Error saving layout: $e');
       throw Exception('Failed to save layout: $e');
     }
   }
@@ -121,6 +129,27 @@ class LayoutRepository {
       await docRef.set(layoutsJson, SetOptions(merge: true));
     } catch (e) {
       throw Exception('Failed to save all layouts: $e');
+    }
+  }
+
+  /// Delete a tab/layout from Firestore
+  /// 
+  /// Removes the specified tab from the user's document
+  Future<void> deleteTab(String tabId) async {
+    try {
+      final userId = _getUserId();
+      final docRef = _firestore.collection(_collectionName).doc(userId);
+
+      // Use FieldValue.delete() to remove the tab field from the document
+      await docRef.update({
+        tabId: FieldValue.delete(),
+      });
+
+      print('🗑️ Deleted tab "$tabId" from Firestore');
+      print('   📍 Path: $_collectionName/$userId');
+    } catch (e) {
+      print('❌ Error deleting tab: $e');
+      throw Exception('Failed to delete tab: $e');
     }
   }
 }

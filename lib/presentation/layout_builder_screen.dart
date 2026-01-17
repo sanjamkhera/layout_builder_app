@@ -5,6 +5,7 @@ import '../bloc/layout_events.dart';
 import '../repository/layout_repository.dart';
 import 'widget_palette.dart';
 import 'canvas_widget.dart';
+import 'tabs_control.dart';
 
 /// Main layout builder screen - Entry point for the layout builder application
 /// 
@@ -102,20 +103,36 @@ class _LayoutBuilderScreenState extends State<LayoutBuilderScreen> {
       // STEP 3: Build the main UI structure (Scaffold)
       // ============================================================
       child: Scaffold(
-        // Top navigation bar - always visible
-        appBar: AppBar(
-          title: const Text('Layout Builder'),
-          backgroundColor: const Color(0xFF1E293B), // Modern dark slate color
-          foregroundColor: Colors.white, // White text/icons on dark background
-          elevation: 0, // No shadow for flat design
-        ),
-        
-        // Main body content - contains the palette and canvas
-        body: Column(
-          children: [
-            // ============================================================
-            // STEP 4A: Widget Palette for SMALL SCREENS (Mobile layout)
-            // ============================================================
+          // Top navigation bar - always visible
+          appBar: AppBar(
+            title: const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Layout Builder',
+                style: TextStyle(
+                  fontFamily: 'Roboto', // Better font
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold, // Bold text
+                  fontStyle: FontStyle.italic, // Italic text
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+            backgroundColor: const Color(0xFF1E293B), // Modern dark slate color
+            foregroundColor: Colors.white, // White text/icons on dark background
+            elevation: 0, // No shadow for flat design
+            centerTitle: false, // Left-justified title
+          ),
+          
+          // Main body content - contains tabs, palette, and canvas
+          body: Column(
+            children: [
+              // Tabs control - shows all tabs and allows creation/switching
+              const TabsControl(),
+              
+              // ============================================================
+              // STEP 4A: Widget Palette for SMALL SCREENS (Mobile layout)
+              // ============================================================
             // This only renders on screens < 768px wide
             // Displayed horizontally at the top of the screen
             // Takes only the space it needs (not Expanded)

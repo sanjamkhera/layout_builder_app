@@ -18,6 +18,8 @@ class LayoutBloc extends Bloc<LayoutEvent, LayoutState> {
     on<DeleteWidgetEvent>(_onDeleteWidget);
     on<SwitchTabEvent>(_onSwitchTab);
     on<CreateTabEvent>(_onCreateTab);
+    on<DeleteTabEvent>(_onDeleteTab);
+    on<RenameTabEvent>(_onRenameTab);
     on<SaveLayoutEvent>(_onSaveLayout);
   }
 
@@ -30,10 +32,40 @@ class LayoutBloc extends Bloc<LayoutEvent, LayoutState> {
 
     try {
       final layouts = await repository.fetchLayouts();
-      emit(state.copyWith(
-        layouts: layouts,
-        isLoading: false,
-      ));
+      
+      // If no layouts exist after loading, create a default tab
+      if (layouts.isEmpty) {
+        final defaultTabId = 'tab${DateTime.now().millisecondsSinceEpoch}';
+        final defaultTabName = 'Tab 1';
+        final defaultLayout = LayoutModel(
+          tabId: defaultTabId,
+          tabName: defaultTabName,
+          widgets: [],
+        );
+        
+        final updatedLayouts = {defaultTabId: defaultLayout};
+        
+        emit(state.copyWith(
+          layouts: updatedLayouts,
+          activeTabId: defaultTabId,
+          isLoading: false,
+        ));
+        
+        // Save the default layout
+        add(const SaveLayoutEvent());
+      } else {
+        // Set the first layout as active if no activeTabId is set or it doesn't exist
+        String activeTabId = state.activeTabId;
+        if (!layouts.containsKey(activeTabId)) {
+          activeTabId = layouts.keys.first;
+        }
+        
+        emit(state.copyWith(
+          layouts: layouts,
+          activeTabId: activeTabId,
+          isLoading: false,
+        ));
+      }
     } catch (e) {
       emit(state.copyWith(
         isLoading: false,
@@ -191,6 +223,61 @@ class LayoutBloc extends Bloc<LayoutEvent, LayoutState> {
     // Save the new layout
     add(const SaveLayoutEvent());
   }
+
+  /// Delete a tab/layout
+  Future<void> _onDeleteTab(
+    DeleteTabEvent event,
+    Emitter<LayoutState> emit,
+  ) async {
+    final updatedLayouts = Map<String, LayoutModel>.from(state.layouts);
+    
+    // Can't delete if it's the only tab
+    if (updatedLayouts.length <= 1) {
+      return;
+    }
+
+    // Remove the tab
+    updatedLayouts.remove(event.tabId);
+
+    // If deleting the active tab, switch to another tab
+    String newActiveTabId = state.activeTabId;
+    if (event.tabId == state.activeTabId && updatedLayouts.isNotEmpty) {
+      newActiveTabId = updatedLayouts.keys.first;
+    }
+
+    emit(state.copyWith(
+      layouts: updatedLayouts,
+      activeTabId: newActiveTabId,
+    ));
+
+    // Delete the tab from Firestore and save all remaining layouts
+    try {
+      await repository.deleteTab(event.tabId);
+      // Save all remaining layouts to ensure consistency
+      await repository.saveAllLayouts(updatedLayouts);
+    } catch (e) {
+      emit(state.copyWith(error: 'Failed to delete tab: $e'));
+    }
+  }
+
+  /// Rename a tab/layout
+  Future<void> _onRenameTab(
+    RenameTabEvent event,
+    Emitter<LayoutState> emit,
+  ) async {
+    final activeLayout = state.layouts[event.tabId];
+    if (activeLayout == null) return;
+
+    final updatedLayout = activeLayout.copyWith(tabName: event.newName);
+    final updatedLayouts = Map<String, LayoutModel>.from(state.layouts);
+    updatedLayouts[event.tabId] = updatedLayout;
+
+    emit(state.copyWith(layouts: updatedLayouts));
+
+    // Save the renamed layout
+    add(const SaveLayoutEvent());
+  }
+
 
   /// Save current layout to Firestore
   Future<void> _onSaveLayout(

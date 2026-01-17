@@ -17,13 +17,88 @@ void main() async {
     // This creates a unique user ID for each device automatically
     final auth = FirebaseAuth.instance;
     
+    // IMPORTANT: Wait for auth state to be restored from local storage (especially on web)
+    // On web, Firebase Auth stores the session in localStorage and needs time to restore it
+    // This prevents creating a new anonymous user on every app restart
+    
+    User? currentUser;
+    
+    // Strategy: Wait for authStateChanges to emit its initial value (restored state)
+    // Then check if we got a user or need to create one
+    try {
+      print('🔍 Checking for existing authenticated user...');
+      
+      // Listen to authStateChanges - it emits the current auth state immediately
+      // and will emit again when auth state changes (including restoration from localStorage)
+      // We need to wait for the initial emission which contains the restored state
+      final authStateStream = auth.authStateChanges();
+      
+      // Get the first emission (current/restored auth state)
+      // This might be null if no user exists, or a User if one was restored
+      currentUser = await authStateStream.first.timeout(
+        const Duration(seconds: 3),
+        onTimeout: () {
+          print('   ⏱️  Timeout waiting for initial auth state');
+          return auth.currentUser; // Fallback to currentUser if timeout
+        },
+      ).catchError((e) {
+        print('   ⚠️  Error getting auth state: $e');
+        return auth.currentUser; // Fallback on error
+      });
+      
+      // If still null, wait a bit longer as localStorage restoration can be async
+      if (currentUser == null) {
+        print('   ⏳ No user in initial state, waiting for async restoration...');
+        
+        // Wait for potential restoration (localStorage on web can take a moment)
+        await Future.delayed(const Duration(milliseconds: 1500));
+        
+        // Check currentUser again after delay
+        currentUser = auth.currentUser;
+        
+        // If still null, listen to authStateChanges for any user restoration
+        if (currentUser == null) {
+          try {
+            currentUser = await auth.authStateChanges()
+                .where((user) => user != null)
+                .timeout(const Duration(seconds: 2))
+                .first
+                .catchError((_) => null);
+          } catch (e) {
+            // Timeout or error - no user restored
+            currentUser = null;
+          }
+        }
+      }
+      
+      if (currentUser != null) {
+        print('   ✓ Found user: ${currentUser!.uid}');
+      } else {
+        print('   ✗ No existing user found - will create new anonymous user');
+      }
+    } catch (e) {
+      // Fallback: check currentUser directly
+      print('⚠️  Exception during auth state check: $e');
+      await Future.delayed(const Duration(milliseconds: 500));
+      currentUser = auth.currentUser;
+      if (currentUser != null) {
+        print('   ✓ Found user in fallback check: ${currentUser!.uid}');
+      }
+    }
+    
     // Check if user is already signed in
-    if (auth.currentUser == null) {
+    if (currentUser == null) {
       // Sign in anonymously - creates a unique user ID per device
       final userCredential = await auth.signInAnonymously();
-      print('✅ Anonymous user authenticated: ${userCredential.user?.uid}');
+      final userId = userCredential.user?.uid ?? 'unknown';
+      print('✅ Anonymous user authenticated: $userId');
+      print('   📍 New user created - this ID will persist across app restarts');
+      print('   📍 Firestore path: layouts/$userId');
     } else {
-      print('✅ User already authenticated: ${auth.currentUser?.uid}');
+      final userId = currentUser.uid;
+      print('✅ User already authenticated: $userId');
+      print('   📍 Using existing user ID (restored from previous session)');
+      print('   📍 Firestore path: layouts/$userId');
     }
   } catch (e) {
     print('❌ Firebase initialization/authentication error: $e');
