@@ -236,26 +236,48 @@ dependencies:
    flutter pub get
    ```
 
-3. **Configure Firebase**
-   - Firebase is already configured via `firebase_options.dart`
-   - Ensure Firestore security rules allow read/write (for testing):
-     ```javascript
-     rules_version = '2';
-     service cloud.firestore {
-       match /databases/{database}/documents {
-         match /{document=**} {
-           allow read, write: if true;
-         }
-       }
-     }
-     ```
-
-4. **Run the app**
+3. **Run the app**
+   
+   You can run the app on different platforms:
+   
+   **Web:**
    ```bash
-   flutter run -d chrome  # Web
-   flutter run -d macos  # macOS
-   flutter run -d ios    # iOS
+   flutter run -d chrome
    ```
+   
+   **macOS:**
+   ```bash
+   flutter run -d macos
+   ```
+   
+   **iOS (requires Xcode installed):**
+   ```bash
+   # List available iOS devices/simulators
+   flutter devices
+   
+   # Run on iOS simulator
+   flutter run -d ios
+   
+   # Or run on a connected iPhone/iPad
+   flutter run -d <device-id>
+   ```
+   
+   **Android (requires Android Studio installed):**
+   ```bash
+   # List available Android devices/emulators
+   flutter devices
+   
+   # Run on Android emulator or connected device
+   flutter run -d android
+   
+   # Or run on a specific device
+   flutter run -d <device-id>
+   ```
+   
+   **Note:** Make sure you have:
+   - **Xcode** installed for iOS development (macOS only)
+   - **Android Studio** installed with Android SDK for Android development
+   - A connected device or running emulator/simulator
 
 ---
 
