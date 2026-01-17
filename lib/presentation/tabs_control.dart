@@ -4,12 +4,12 @@ import '../bloc/layout_bloc.dart';
 import '../bloc/layout_events.dart';
 import '../bloc/layout_state.dart';
 
-/// TabsControl widget - Displays and manages tabs for layouts
-/// 
-/// BLoC COMPLIANCE:
-/// - Uses BlocBuilder to read state (no direct state access)
-/// - Dispatches events only (no direct database calls)
-/// - All database operations go through BLoC → Repository → Firestore
+/// Tab control widget for displaying and managing layout tabs.
+///
+/// Displays a horizontal scrollable list of tabs with an inline add button.
+/// Supports tab switching, renaming (via long press), and deletion (with
+/// confirmation). All operations dispatch events to [LayoutBloc] for state
+/// management and persistence.
 class TabsControl extends StatelessWidget {
   const TabsControl({super.key});
 
@@ -17,39 +17,35 @@ class TabsControl extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<LayoutBloc, LayoutState>(
       builder: (context, state) {
-        // Get all tabs from state
         final tabs = state.layouts.values.toList();
         final activeTabId = state.activeTabId;
 
         return Container(
           height: 48,
           decoration: const BoxDecoration(
-            color: Color(0xFF1E293B), // Dark slate to match AppBar
+            color: Color(0xFF1E293B),
             border: Border(
               bottom: BorderSide(
-                color: Color(0xFF334155), // Slightly lighter border
+                color: Color(0xFF334155),
                 width: 1,
               ),
             ),
           ),
           child: Row(
             children: [
-              // List of tabs with "+" button inline
               Expanded(
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
-                  itemCount: tabs.length + 1, // +1 for the add button
+                  itemCount: tabs.length + 1,
                   itemBuilder: (context, index) {
-                    // Show add button as the first item (right after tabs)
                     if (index == tabs.length) {
                       return _AddTabButton(
                         onTap: () {
-                          // Generate new tab ID
-                          final newTabId = 'tab${DateTime.now().millisecondsSinceEpoch}';
+                          final newTabId =
+                              'tab${DateTime.now().millisecondsSinceEpoch}';
                           final newTabName = 'Tab ${tabs.length + 1}';
 
-                          // Dispatch CreateTabEvent - BLoC handles creation and save
                           context.read<LayoutBloc>().add(
                                 CreateTabEvent(
                                   tabId: newTabId,
@@ -60,7 +56,6 @@ class TabsControl extends StatelessWidget {
                       );
                     }
 
-                    // Regular tab items
                     final tab = tabs[index];
                     final isActive = tab.tabId == activeTabId;
 
@@ -69,13 +64,11 @@ class TabsControl extends StatelessWidget {
                       tabName: tab.tabName,
                       isActive: isActive,
                       onTap: () {
-                        // Dispatch SwitchTabEvent - BLoC handles state update
                         context.read<LayoutBloc>().add(
                               SwitchTabEvent(tabId: tab.tabId),
                             );
                       },
                       onDelete: () {
-                        // Show confirmation dialog before deleting
                         _showDeleteConfirmation(context, tab.tabId, tab.tabName);
                       },
                     );
@@ -89,13 +82,15 @@ class TabsControl extends StatelessWidget {
     );
   }
 
-  /// Show confirmation dialog before deleting a tab
-  void _showDeleteConfirmation(BuildContext context, String tabId, String tabName) {
+  /// Shows a confirmation dialog before deleting a tab.
+  void _showDeleteConfirmation(
+      BuildContext context, String tabId, String tabName) {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Delete Tab'),
-        content: Text('Are you sure you want to delete "$tabName"?\n\nThis action cannot be undone.'),
+        content: Text(
+            'Are you sure you want to delete "$tabName"?\n\nThis action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
@@ -103,7 +98,6 @@ class TabsControl extends StatelessWidget {
           ),
           TextButton(
             onPressed: () {
-              // Dispatch DeleteTabEvent - BLoC handles deletion and save
               context.read<LayoutBloc>().add(
                     DeleteTabEvent(tabId: tabId),
                   );
@@ -120,7 +114,11 @@ class TabsControl extends StatelessWidget {
   }
 }
 
-/// Individual tab item widget
+/// Individual tab item widget with rename and delete functionality.
+///
+/// Displays a tab with visual indication of active state. Supports tap to
+/// switch, long press to rename, and delete via close button. Delete button
+/// is wrapped in [GestureDetector] to prevent triggering parent tap events.
 class _TabItem extends StatelessWidget {
   final String tabId;
   final String tabName;
@@ -141,7 +139,6 @@ class _TabItem extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       onLongPress: () {
-        // Show rename dialog on long press
         _showRenameDialog(context);
       },
       borderRadius: BorderRadius.circular(8),
@@ -150,12 +147,12 @@ class _TabItem extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: isActive
-              ? const Color(0xFF0F172A) // Darker when active
-              : const Color(0xFF334155), // Lighter when inactive
+              ? const Color(0xFF0F172A)
+              : const Color(0xFF334155),
           borderRadius: BorderRadius.circular(8),
           border: isActive
               ? Border.all(
-                  color: const Color(0xFF60A5FA), // Blue border when active
+                  color: const Color(0xFF60A5FA),
                   width: 1.5,
                 )
               : null,
@@ -163,7 +160,6 @@ class _TabItem extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Tab name
             Text(
               tabName,
               style: TextStyle(
@@ -173,11 +169,8 @@ class _TabItem extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            // Delete button - wrapped in GestureDetector to prevent parent tap
             GestureDetector(
-              onTap: () {
-                onDelete();
-              },
+              onTap: onDelete,
               behavior: HitTestBehavior.opaque,
               child: Container(
                 padding: const EdgeInsets.all(2),
@@ -198,6 +191,7 @@ class _TabItem extends StatelessWidget {
     );
   }
 
+  /// Shows a dialog for renaming the tab.
   void _showRenameDialog(BuildContext context) {
     final textController = TextEditingController(text: tabName);
 
@@ -214,7 +208,6 @@ class _TabItem extends StatelessWidget {
           ),
           onSubmitted: (value) {
             if (value.trim().isNotEmpty) {
-              // Dispatch RenameTabEvent - BLoC handles rename and save
               context.read<LayoutBloc>().add(
                     RenameTabEvent(
                       tabId: tabId,
@@ -234,7 +227,6 @@ class _TabItem extends StatelessWidget {
             onPressed: () {
               final newName = textController.text.trim();
               if (newName.isNotEmpty) {
-                // Dispatch RenameTabEvent - BLoC handles rename and save
                 context.read<LayoutBloc>().add(
                       RenameTabEvent(
                         tabId: tabId,
@@ -252,7 +244,7 @@ class _TabItem extends StatelessWidget {
   }
 }
 
-/// Add new tab button
+/// Circular button for adding new tabs.
 class _AddTabButton extends StatelessWidget {
   final VoidCallback onTap;
 
@@ -263,18 +255,18 @@ class _AddTabButton extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(left: 4, top: 4, bottom: 4),
       child: Material(
-        color: Colors.grey[300], // Subtle gray background
-        shape: const CircleBorder(), // Round shape
+        color: Colors.grey[300],
+        shape: const CircleBorder(),
         child: InkWell(
           onTap: onTap,
           customBorder: const CircleBorder(),
           child: Container(
-            width: 40, // Fixed width for circular button
-            height: 40, // Fixed height for circular button
+            width: 40,
+            height: 40,
             alignment: Alignment.center,
             child: const Icon(
               Icons.add,
-              color: Colors.black, // Black + sign
+              color: Colors.black,
               size: 20,
             ),
           ),

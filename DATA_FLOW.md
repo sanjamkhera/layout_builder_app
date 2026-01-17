@@ -281,32 +281,93 @@ class CanvasWidget extends StatefulWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<LayoutBloc, LayoutState>(
       builder: (context, state) {
+        // Handle loading state
+        if (state.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        
+        // Handle error state
+        if (state.error != null) {
+          return Center(child: Text('Error: ${state.error}'));
+        }
+        
         final activeLayout = state.activeLayout;
         
-        return InteractiveViewer(
-          transformationController: _transformationController,
-          minScale: 1.0,  // Can't zoom out beyond 1:1
-          maxScale: 3.0,  // Can zoom in up to 3x
-          child: Container(
-            width: _fixedCanvasWidth,
-            height: _fixedCanvasHeight,
-            child: DragTarget<String>(
-              onAcceptWithDetails: (details) {
-                _handleWidgetDrop(details);
-              },
-              builder: (context, candidateData, rejectedData) {
-                return Stack(
-                  children: [
-                    DotGridPainter(),  // Grid background
-                    // Render widgets from activeLayout
-                    ...activeLayout.widgets.map((widget) {
-                      return DraggableCanvasWidget(widget: widget);
-                    }),
-                  ],
-                );
-              },
+        // Show empty canvas if no layout or no widgets
+        if (activeLayout == null || activeLayout.widgets.isEmpty) {
+          return _buildEmptyCanvas();
+        }
+        
+        // Show canvas with widgets
+        return _buildCanvasWithWidgets(activeLayout);
+      },
+    );
+  }
+  
+  Widget _buildCanvasWithWidgets(LayoutModel activeLayout) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Stack(
+          children: [
+            // Background container
+            Container(
+              width: constraints.maxWidth,
+              height: constraints.maxHeight,
+              color: const Color(0xFFFAFBFC),
             ),
-          ),
+            // Interactive viewer for zoom/pan
+            InteractiveViewer(
+              constrained: false,
+              transformationController: _transformationController,
+              minScale: 1.0,  // Can't zoom out beyond 1:1
+              maxScale: 3.0,  // Can zoom in up to 3x
+              panEnabled: !_isWidgetInteracting,  // Disable pan while dragging/resizing
+              child: Container(
+                key: _canvasKey,
+                width: _fixedCanvasWidth,
+                height: _fixedCanvasHeight,
+                child: DragTarget<String>(
+                  onWillAccept: (data) => true,
+                  onAcceptWithDetails: _handleWidgetDrop,
+                  builder: (context, candidateData, rejectedData) {
+                    return Stack(
+                      children: [
+                        CustomPaint(
+                          painter: DotGridPainter(),
+                          size: Size(_fixedCanvasWidth, _fixedCanvasHeight),
+                        ),
+                        // Render widgets with padding offset for resize handles
+                        ...activeLayout.widgets.map((widget) {
+                          const stackPadding = 10.0;
+                          return Positioned(
+                            left: widget.x - stackPadding,
+                            top: widget.y - stackPadding,
+                            child: DraggableCanvasWidget(
+                              widget: widget,
+                              canvasKey: _canvasKey,
+                              transformationController: _transformationController,
+                              onInteractionStart: _onWidgetInteractionStart,
+                              onInteractionEnd: _onWidgetInteractionEnd,
+                            ),
+                          );
+                        }),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+            // Zoom controls (bottom-right)
+            Positioned(
+              bottom: 16,
+              right: 16,
+              child: ZoomControls(
+                onZoomIn: _zoomIn,
+                onZoomOut: _zoomOut,
+                onReset: _resetZoom,
+              ),
+            ),
+          ],
         );
       },
     );
@@ -315,10 +376,13 @@ class CanvasWidget extends StatefulWidget {
 ```
 **What happens:**
 - Listens to BLoC state changes
+- Handles loading and error states
 - Displays active layout's widgets
 - Fixed 1920x1080 canvas size
-- Supports zoom (1x to 3x) and pan
+- Supports zoom (1x to 3x) and pan (disabled while dragging/resizing widgets)
 - Accepts dropped widgets from palette
+- Shows zoom controls in bottom-right corner
+- Widgets positioned with `-10.0` offset to accommodate resize handle padding
 
 ---
 
@@ -490,11 +554,16 @@ BlocBuilder<LayoutBloc, LayoutState>(
       children: [
         // Render all widgets from active layout
         ...activeLayout.widgets.map((widget) {
+          const stackPadding = 10.0;  // Padding for resize handles
           return Positioned(
-            left: widget.x,      // From WidgetModel
-            top: widget.y,       // From WidgetModel
+            left: widget.x - stackPadding,  // Offset for resize handle padding
+            top: widget.y - stackPadding,  // Offset for resize handle padding
             child: DraggableCanvasWidget(
-              widget: widget,  // Can be moved and resized
+              widget: widget,
+              canvasKey: _canvasKey,
+              transformationController: _transformationController,
+              onInteractionStart: _onWidgetInteractionStart,
+              onInteractionEnd: _onWidgetInteractionEnd,
             ),
           );
         }),
@@ -508,6 +577,7 @@ BlocBuilder<LayoutBloc, LayoutState>(
 - BlocBuilder detects change
 - Rebuilds canvas
 - New widget appears at drop position
+- **Note:** Widgets are positioned with `-10.0` offset to account for resize handle padding. The `DraggableCanvasWidget` has 10px padding on all sides to accommodate resize handles that extend beyond widget bounds. The visual widget still appears at the correct `(x, y)` position because the widget container inside `DraggableCanvasWidget` is offset by 10px.
 
 ---
 
@@ -677,17 +747,22 @@ Auto-save: SaveLayoutEvent → Repository → Firestore
 ```
 User drags widget on canvas
     ↓
+DraggableCanvasWidget._onPanStart()
+    - Calculates drag offset (where user clicked relative to widget's top-left)
+    - Disables canvas pan (_isWidgetInteracting = true)
+    ↓
 DraggableCanvasWidget._onPanUpdate()
-    ↓
-Converts global position to canvas coordinates (accounts for zoom/pan)
-    ↓
-Clamps to canvas bounds (0 to maxX/Y)
-    ↓
-Dispatches MoveWidgetEvent(widgetId, newX, newY)
+    - Converts global position to canvas coordinates (accounts for zoom/pan)
+    - Calculates new position: cursor position - drag offset
+    - Clamps to canvas bounds (0 to maxX/Y)
+    - Dispatches MoveWidgetEvent(widgetId, newX, newY) for real-time preview
     ↓
 BLoC._onMoveWidget() updates widget position
     ↓
-State emitted → UI rebuilds (real-time preview)
+State emitted → UI rebuilds (real-time preview during drag)
+    ↓
+DraggableCanvasWidget._onPanEnd()
+    - Re-enables canvas pan (_isWidgetInteracting = false)
     ↓
 Auto-save: SaveLayoutEvent → Repository → Firestore
 ```
@@ -746,19 +821,20 @@ Auto-save: SaveLayoutEvent → Repository → Firestore
 13. canvas_widget.dart:_handleWidgetDrop()
     → Converts drop position to canvas coordinates
     → Clamps to bounds
+    → context.read<LayoutBloc>().add(
+        AddWidgetEvent(type: "A", x: 450.0, y: 320.0)
+      )
    ↓
-14. layout_builder_screen.dart:context.read<LayoutBloc>().add(
-    AddWidgetEvent(type: "A", x: 450.0, y: 320.0)
-   )
+14. layout_bloc.dart receives AddWidgetEvent
    ↓
 15. layout_bloc.dart:_onAddWidget()
-    → Creates WidgetModel
+    → Creates WidgetModel with drop position
     → Updates LayoutModel
     → Emits state
     → add(SaveLayoutEvent())
    ↓
 16. canvas_widget.dart:BlocBuilder rebuilds
-    → Widget appears on canvas at drop position
+    → Widget appears on canvas at drop position (with stackPadding offset)
    ↓
 17. layout_bloc.dart:_onSaveLayout()
    ↓
@@ -864,9 +940,9 @@ SaveLayoutEvent → Repository → Firestore
 - `canvas_widget.dart` - Sends AddWidgetEvent with actual drop position
 
 ### **Adding Widget:**
-- `layout_builder_screen.dart` - Sends AddWidgetEvent
+- `canvas_widget.dart:_handleWidgetDrop()` - Handles drop, converts position, sends AddWidgetEvent
 - `layout_bloc.dart:_onAddWidget()` - Creates WidgetModel, updates state
-- `canvas_widget.dart` - Renders widgets from state
+- `canvas_widget.dart` - Renders widgets from state (with stackPadding offset)
 
 ### **Moving Widget:**
 - `draggable_canvas_widget.dart:_onPanUpdate()` - Handles drag

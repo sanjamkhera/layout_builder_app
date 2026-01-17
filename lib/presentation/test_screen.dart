@@ -3,7 +3,11 @@ import '../models/widget_model.dart';
 import '../models/layout_model.dart';
 import '../repository/layout_repository.dart';
 
-/// Test screen to verify Firestore connection and repository
+/// Test screen for verifying Firestore connection and repository functionality.
+///
+/// Provides UI for testing save and load operations with the [LayoutRepository].
+/// Displays operation status and results, with timeout handling for network
+/// operations. Useful for debugging Firestore connectivity and security rules.
 class TestScreen extends StatefulWidget {
   const TestScreen({super.key});
 
@@ -16,7 +20,10 @@ class _TestScreenState extends State<TestScreen> {
   String _status = 'Ready to test';
   bool _isLoading = false;
 
-  /// Test: Save a layout to Firestore
+  /// Saves a test layout to Firestore.
+  ///
+  /// Creates a test widget and layout, then attempts to save via the repository.
+  /// Handles timeouts and errors, displaying appropriate status messages.
   Future<void> _testSave() async {
     setState(() {
       _isLoading = true;
@@ -24,7 +31,6 @@ class _TestScreenState extends State<TestScreen> {
     });
 
     try {
-      // Create a test widget
       final testWidget = WidgetModel(
         id: 'test_widget_1',
         type: 'A',
@@ -34,31 +40,30 @@ class _TestScreenState extends State<TestScreen> {
         height: 150.0,
       );
 
-      // Create a test layout
       final testLayout = LayoutModel(
         tabId: 'test_tab_1',
         tabName: 'Test Layout',
         widgets: [testWidget],
       );
 
-      // Save to Firestore with timeout
       await _repository.saveLayout(testLayout).timeout(
         const Duration(seconds: 10),
         onTimeout: () {
-          throw Exception('Timeout: Firestore took too long. Check security rules!');
+          throw Exception(
+              'Timeout: Firestore took too long. Check security rules!');
         },
       );
 
       setState(() {
-        _status = '✅ Saved successfully!\n'
+        _status = 'Saved successfully!\n'
             'Tab: ${testLayout.tabName}\n'
             'Widgets: ${testLayout.widgets.length}';
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
-        _status = '❌ Error saving: $e\n\n'
-            '⚠️ Common issue: Firestore security rules\n'
+        _status = 'Error saving: $e\n\n'
+            'Common issue: Firestore security rules\n'
             'Go to Firebase Console → Firestore → Rules\n'
             'Set rules to allow read/write for testing';
         _isLoading = false;
@@ -66,7 +71,10 @@ class _TestScreenState extends State<TestScreen> {
     }
   }
 
-  /// Test: Load layouts from Firestore
+  /// Loads layouts from Firestore.
+  ///
+  /// Fetches all layouts via the repository and displays their details.
+  /// Handles empty results and errors with appropriate status messages.
   Future<void> _testLoad() async {
     setState(() {
       _isLoading = true;
@@ -74,26 +82,25 @@ class _TestScreenState extends State<TestScreen> {
     });
 
     try {
-      // Load from Firestore with timeout
       final layouts = await _repository.fetchLayouts().timeout(
         const Duration(seconds: 10),
         onTimeout: () {
-          throw Exception('Timeout: Firestore took too long. Check security rules!');
+          throw Exception(
+              'Timeout: Firestore took too long. Check security rules!');
         },
       );
 
       if (layouts.isEmpty) {
         setState(() {
-          _status = '⚠️ No layouts found in Firestore\n'
+          _status = 'No layouts found in Firestore\n'
               'Try saving first!';
           _isLoading = false;
         });
         return;
       }
 
-      // Display loaded layouts
       final buffer = StringBuffer();
-      buffer.writeln('✅ Loaded ${layouts.length} layout(s):\n');
+      buffer.writeln('Loaded ${layouts.length} layout(s):\n');
       layouts.forEach((tabId, layout) {
         buffer.writeln('Tab: ${layout.tabName}');
         buffer.writeln('Widgets: ${layout.widgets.length}');
@@ -106,7 +113,7 @@ class _TestScreenState extends State<TestScreen> {
       });
     } catch (e) {
       setState(() {
-        _status = '❌ Error loading: $e';
+        _status = 'Error loading: $e';
         _isLoading = false;
       });
     }
@@ -124,7 +131,6 @@ class _TestScreenState extends State<TestScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Status display
             Card(
               color: Colors.grey[100],
               child: Padding(
@@ -149,8 +155,6 @@ class _TestScreenState extends State<TestScreen> {
               ),
             ),
             const SizedBox(height: 24),
-
-            // Test buttons
             ElevatedButton(
               onPressed: _isLoading ? null : _testSave,
               style: ElevatedButton.styleFrom(
@@ -175,8 +179,6 @@ class _TestScreenState extends State<TestScreen> {
               ),
             ),
             const SizedBox(height: 24),
-
-            // Instructions
             const Card(
               color: Colors.amber,
               child: Padding(

@@ -1,25 +1,27 @@
 import 'package:equatable/equatable.dart';
 
-/// Model representing a single widget on the canvas
-/// 
-/// Example: Widget A at position (100, 200) with size 150x150
+/// Immutable model representing a single widget positioned on the canvas.
+///
+/// Contains the widget's type identifier, position coordinates, and dimensions.
+/// Implements [Equatable] for value-based equality and provides JSON
+/// serialization for Firestore persistence.
 class WidgetModel extends Equatable {
-  /// Unique ID for this widget
+  /// Unique identifier for this widget instance.
   final String id;
 
-  /// Widget type: "A", "B", "C", "D", etc.
+  /// Widget type identifier (e.g., "A", "B", "C", "D").
   final String type;
 
-  /// X position on canvas (left edge)
+  /// X coordinate of the widget's left edge on the canvas.
   final double x;
 
-  /// Y position on canvas (top edge)
+  /// Y coordinate of the widget's top edge on the canvas.
   final double y;
 
-  /// Width of the widget
+  /// Width of the widget in canvas coordinates.
   final double width;
 
-  /// Height of the widget
+  /// Height of the widget in canvas coordinates.
   final double height;
 
   const WidgetModel({
@@ -31,7 +33,11 @@ class WidgetModel extends Equatable {
     required this.height,
   });
 
-  /// Create a copy with updated values (for immutable updates)
+  /// Creates a copy of this widget with optionally updated fields.
+  ///
+  /// Returns a new [WidgetModel] instance with the same values as this one,
+  /// except for the fields explicitly provided. Unspecified fields retain
+  /// their current values.
   WidgetModel copyWith({
     String? id,
     String? type,
@@ -50,7 +56,9 @@ class WidgetModel extends Equatable {
     );
   }
 
-  /// Convert widget to JSON (for saving to Firestore)
+  /// Converts this widget to a JSON map for Firestore persistence.
+  ///
+  /// Serializes all fields as their native JSON-compatible types.
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -62,7 +70,10 @@ class WidgetModel extends Equatable {
     };
   }
 
-  /// Create widget from JSON (for loading from Firestore)
+  /// Creates a [WidgetModel] from a JSON map loaded from Firestore.
+  ///
+  /// Deserializes all fields, converting numeric values to doubles to handle
+  /// both integer and floating-point JSON numbers.
   factory WidgetModel.fromJson(Map<String, dynamic> json) {
     return WidgetModel(
       id: json['id'] as String,

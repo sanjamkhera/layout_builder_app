@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 
-/// Zoom controls widget
+/// Zoom control buttons for canvas navigation.
+///
+/// Provides a vertical stack of icon buttons for zooming in, zooming out,
+/// and resetting the canvas view to 1:1 scale. Displays as a floating panel
+/// with shadow elevation, typically positioned at the bottom-right of the
+/// canvas area.
 class ZoomControls extends StatelessWidget {
   final VoidCallback onZoomIn;
   final VoidCallback onZoomOut;

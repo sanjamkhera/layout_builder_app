@@ -2,25 +2,22 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/layout_model.dart';
 
-/// Repository that handles all Firestore operations for layouts
-/// 
-/// This is the "middleman" between BLoC and Firestore.
-/// BLoC asks repository to save/load, repository talks to Firestore.
+/// Repository for Firestore operations on layout data.
+///
+/// Acts as the data access layer between the BLoC and Firestore, handling
+/// all database operations for layouts. Stores layouts in a user-scoped
+/// document structure where each user has a document containing their
+/// collection of layout tabs.
 class LayoutRepository {
-  // Firestore instance (the database connection)
   final FirebaseFirestore _firestore;
-
-  // Collection name in Firestore where we store layouts
   static const String _collectionName = 'layouts';
 
-  // Constructor - creates repository with Firestore connection
   LayoutRepository({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
 
-  /// Get user ID from Firebase Authentication
-  /// 
   /// Returns the current authenticated user's unique ID.
-  /// If no user is authenticated, throws an exception.
+  ///
+  /// Throws an exception if no user is authenticated.
   String _getUserId() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -28,127 +25,102 @@ class LayoutRepository {
         'User not authenticated. Please ensure anonymous authentication is enabled.',
       );
     }
-    final userId = user.uid;
-    print('🔑 Repository: Using user ID: $userId');
-    return userId; // Unique user ID (e.g., "a7K9mP2xQyZ1...")
+    return user.uid;
   }
 
-  /// Fetch all layouts for the current user from Firestore
-  /// 
-  /// Returns: Map of tabId -> LayoutModel
-  /// Example: { "tab1": LayoutModel(...), "tab2": LayoutModel(...) }
+  /// Fetches all layouts for the current user from Firestore.
+  ///
+  /// Returns a map of tab IDs to [LayoutModel] instances. Returns an empty
+  /// map if no layouts exist for the user.
+  ///
+  /// Throws an exception if the fetch operation fails.
   Future<Map<String, LayoutModel>> fetchLayouts() async {
     try {
-      // Get the user's document from Firestore
-      // Collection: "layouts"
-      // Document ID: userId (e.g., "a7K9mP2xQyZ1...")
       final userId = _getUserId();
       final docRef = _firestore.collection(_collectionName).doc(userId);
-      print('📥 Fetching layouts from: $_collectionName/$userId');
-
-      // Get the document snapshot (the data)
       final docSnapshot = await docRef.get();
 
-      // Check if document exists
       if (!docSnapshot.exists) {
-        // No layouts saved yet - return empty map
         return {};
       }
 
-      // Get the data from the document
       final data = docSnapshot.data();
       if (data == null) {
         return {};
       }
 
-      // Convert JSON data to LayoutModel objects
-      // Data structure: { "tab1": {...}, "tab2": {...} }
       final Map<String, LayoutModel> layouts = {};
-
-      // Loop through each tab in the data
       data.forEach((tabId, layoutJson) {
         if (layoutJson is Map<String, dynamic>) {
-          // Convert JSON to LayoutModel using fromJson()
           layouts[tabId] = LayoutModel.fromJson(layoutJson);
         }
       });
 
       return layouts;
     } catch (e) {
-      // If something goes wrong, throw error (BLoC will handle it)
       throw Exception('Failed to fetch layouts: $e');
     }
   }
 
-  /// Save a layout to Firestore
-  /// 
-  /// Takes a LayoutModel and saves it to Firestore
-  /// Updates the user's document with this layout
+  /// Saves a layout to Firestore.
+  ///
+  /// Updates the user's document with the provided layout, merging with
+  /// existing data to preserve other tabs. Uses the layout's [tabId] as
+  /// the field key in the document.
+  ///
+  /// Throws an exception if the save operation fails.
   Future<void> saveLayout(LayoutModel layout) async {
     try {
-      // Get the user's document reference
       final userId = _getUserId();
       final docRef = _firestore.collection(_collectionName).doc(userId);
-
-      // Convert LayoutModel to JSON using toJson()
       final layoutJson = layout.toJson();
 
-      // Update the document
-      // Using set() with merge: true to update just this tab without overwriting others
-      // Structure: { "tabId": { layout data } }
-      // Firestore path: layouts/{userId}/{tabId}
       await docRef.set(
         {layout.tabId: layoutJson},
-        SetOptions(merge: true), // Merge with existing data (don't overwrite other tabs)
+        SetOptions(merge: true),
       );
-      
-      print('💾 Saved layout "${layout.tabName}" (${layout.tabId}) to Firestore');
-      print('   📍 Path: $_collectionName/$userId/${layout.tabId}');
     } catch (e) {
-      // If something goes wrong, throw error (BLoC will handle it)
-      print('❌ Error saving layout: $e');
       throw Exception('Failed to save layout: $e');
     }
   }
 
-  /// Save all layouts at once (optional helper method)
-  /// 
-  /// Useful when you want to save multiple layouts in one operation
+  /// Saves all layouts in a single Firestore operation.
+  ///
+  /// Useful for batch updates or initial synchronization. Merges with
+  /// existing data in the user's document.
+  ///
+  /// Throws an exception if the save operation fails.
   Future<void> saveAllLayouts(Map<String, LayoutModel> layouts) async {
     try {
       final userId = _getUserId();
       final docRef = _firestore.collection(_collectionName).doc(userId);
 
-      // Convert all layouts to JSON
       final Map<String, dynamic> layoutsJson = {};
       layouts.forEach((tabId, layout) {
         layoutsJson[tabId] = layout.toJson();
       });
 
-      // Save all at once
       await docRef.set(layoutsJson, SetOptions(merge: true));
     } catch (e) {
       throw Exception('Failed to save all layouts: $e');
     }
   }
 
-  /// Delete a tab/layout from Firestore
-  /// 
-  /// Removes the specified tab from the user's document
+  /// Deletes a tab/layout from Firestore.
+  ///
+  /// Removes the specified tab field from the user's document using
+  /// [FieldValue.delete()].
+  ///
+  /// Throws an exception if the delete operation fails.
   Future<void> deleteTab(String tabId) async {
     try {
       final userId = _getUserId();
       final docRef = _firestore.collection(_collectionName).doc(userId);
 
-      // Use FieldValue.delete() to remove the tab field from the document
       await docRef.update({
         tabId: FieldValue.delete(),
       });
-
-      print('🗑️ Deleted tab "$tabId" from Firestore');
-      print('   📍 Path: $_collectionName/$userId');
     } catch (e) {
-      print('❌ Error deleting tab: $e');
       throw Exception('Failed to delete tab: $e');
     }
   }

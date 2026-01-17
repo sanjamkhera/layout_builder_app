@@ -5,12 +5,16 @@ import '../models/widget_model.dart';
 import '../models/layout_model.dart';
 import '../repository/layout_repository.dart';
 
-/// BLoC that manages layout state and handles all layout-related events
+/// Business logic component for managing layout state and operations.
+///
+/// Handles all layout-related events including widget manipulation (add, move,
+/// resize, delete), tab management (create, switch, delete, rename), and
+/// persistence operations. Automatically saves changes to Firestore after
+/// widget modifications and tab operations.
 class LayoutBloc extends Bloc<LayoutEvent, LayoutState> {
   final LayoutRepository repository;
 
   LayoutBloc({required this.repository}) : super(LayoutState.initial()) {
-    // Register event handlers
     on<LoadLayoutsEvent>(_onLoadLayouts);
     on<AddWidgetEvent>(_onAddWidget);
     on<MoveWidgetEvent>(_onMoveWidget);
@@ -23,7 +27,10 @@ class LayoutBloc extends Bloc<LayoutEvent, LayoutState> {
     on<SaveLayoutEvent>(_onSaveLayout);
   }
 
-  /// Load all layouts from Firestore
+  /// Loads all layouts from Firestore and initializes state.
+  ///
+  /// Creates a default tab if no layouts exist. Sets the first available
+  /// layout as active if the current active tab ID is invalid.
   Future<void> _onLoadLayouts(
     LoadLayoutsEvent event,
     Emitter<LayoutState> emit,
@@ -32,8 +39,7 @@ class LayoutBloc extends Bloc<LayoutEvent, LayoutState> {
 
     try {
       final layouts = await repository.fetchLayouts();
-      
-      // If no layouts exist after loading, create a default tab
+
       if (layouts.isEmpty) {
         final defaultTabId = 'tab${DateTime.now().millisecondsSinceEpoch}';
         final defaultTabName = 'Tab 1';
@@ -42,24 +48,22 @@ class LayoutBloc extends Bloc<LayoutEvent, LayoutState> {
           tabName: defaultTabName,
           widgets: [],
         );
-        
+
         final updatedLayouts = {defaultTabId: defaultLayout};
-        
+
         emit(state.copyWith(
           layouts: updatedLayouts,
           activeTabId: defaultTabId,
           isLoading: false,
         ));
-        
-        // Save the default layout
+
         add(const SaveLayoutEvent());
       } else {
-        // Set the first layout as active if no activeTabId is set or it doesn't exist
         String activeTabId = state.activeTabId;
         if (!layouts.containsKey(activeTabId)) {
           activeTabId = layouts.keys.first;
         }
-        
+
         emit(state.copyWith(
           layouts: layouts,
           activeTabId: activeTabId,
@@ -74,17 +78,17 @@ class LayoutBloc extends Bloc<LayoutEvent, LayoutState> {
     }
   }
 
-  /// Add a new widget to the active layout
+  /// Adds a new widget to the active layout.
+  ///
+  /// Creates a new layout if none exists for the active tab. Widgets are
+  /// created with default dimensions (100x100) and positioned at the drop
+  /// coordinates. Automatically saves the layout after adding.
   Future<void> _onAddWidget(
     AddWidgetEvent event,
     Emitter<LayoutState> emit,
   ) async {
-    print('🎯 BLoC: AddWidgetEvent received - type: ${event.type}, x: ${event.x}, y: ${event.y}');
-    
-    // Create new layout if it doesn't exist
     var activeLayout = state.activeLayout;
     if (activeLayout == null) {
-      print('📝 Creating new layout for tab: ${state.activeTabId}');
       activeLayout = LayoutModel(
         tabId: state.activeTabId,
         tabName: 'Layout ${state.activeTabId}',
@@ -97,11 +101,9 @@ class LayoutBloc extends Bloc<LayoutEvent, LayoutState> {
       type: event.type,
       x: event.x,
       y: event.y,
-      width: 100, // Default width
-      height: 100, // Default height
+      width: 100,
+      height: 100,
     );
-
-    print('✨ Creating widget: ${newWidget.id}, type: ${newWidget.type}');
 
     final updatedWidgets = [...activeLayout.widgets, newWidget];
     final updatedLayout = activeLayout.copyWith(widgets: updatedWidgets);
@@ -109,14 +111,14 @@ class LayoutBloc extends Bloc<LayoutEvent, LayoutState> {
     final updatedLayouts = Map<String, LayoutModel>.from(state.layouts);
     updatedLayouts[state.activeTabId] = updatedLayout;
 
-    print('💾 Emitting new state with ${updatedWidgets.length} widgets');
     emit(state.copyWith(layouts: updatedLayouts));
-
-    // Auto-save after adding widget
     add(const SaveLayoutEvent());
   }
 
-  /// Move a widget on the canvas
+  /// Moves a widget to a new position on the canvas.
+  ///
+  /// Updates the widget's x and y coordinates. Automatically saves the
+  /// layout after moving.
   Future<void> _onMoveWidget(
     MoveWidgetEvent event,
     Emitter<LayoutState> emit,
@@ -136,12 +138,13 @@ class LayoutBloc extends Bloc<LayoutEvent, LayoutState> {
     updatedLayouts[state.activeTabId] = updatedLayout;
 
     emit(state.copyWith(layouts: updatedLayouts));
-
-    // Auto-save after moving widget
     add(const SaveLayoutEvent());
   }
 
-  /// Resize a widget
+  /// Resizes a widget to new dimensions.
+  ///
+  /// Updates the widget's width and height. Automatically saves the layout
+  /// after resizing.
   Future<void> _onResizeWidget(
     ResizeWidgetEvent event,
     Emitter<LayoutState> emit,
@@ -164,12 +167,13 @@ class LayoutBloc extends Bloc<LayoutEvent, LayoutState> {
     updatedLayouts[state.activeTabId] = updatedLayout;
 
     emit(state.copyWith(layouts: updatedLayouts));
-
-    // Auto-save after resizing widget
     add(const SaveLayoutEvent());
   }
 
-  /// Delete a widget from canvas
+  /// Deletes a widget from the active layout.
+  ///
+  /// Removes the widget from the layout's widget list. Automatically saves
+  /// the layout after deletion.
   Future<void> _onDeleteWidget(
     DeleteWidgetEvent event,
     Emitter<LayoutState> emit,
@@ -186,12 +190,12 @@ class LayoutBloc extends Bloc<LayoutEvent, LayoutState> {
     updatedLayouts[state.activeTabId] = updatedLayout;
 
     emit(state.copyWith(layouts: updatedLayouts));
-
-    // Auto-save after deleting widget
     add(const SaveLayoutEvent());
   }
 
-  /// Switch to a different tab
+  /// Switches the active tab to the specified tab ID.
+  ///
+  /// Only switches if the tab exists in the current layouts.
   Future<void> _onSwitchTab(
     SwitchTabEvent event,
     Emitter<LayoutState> emit,
@@ -201,7 +205,10 @@ class LayoutBloc extends Bloc<LayoutEvent, LayoutState> {
     }
   }
 
-  /// Create a new tab/layout
+  /// Creates a new tab/layout with the specified ID and name.
+  ///
+  /// Adds the new layout to state and sets it as active. Automatically
+  /// saves the new layout to Firestore.
   Future<void> _onCreateTab(
     CreateTabEvent event,
     Emitter<LayoutState> emit,
@@ -220,26 +227,26 @@ class LayoutBloc extends Bloc<LayoutEvent, LayoutState> {
       activeTabId: event.tabId,
     ));
 
-    // Save the new layout
     add(const SaveLayoutEvent());
   }
 
-  /// Delete a tab/layout
+  /// Deletes a tab/layout from state and Firestore.
+  ///
+  /// Prevents deletion if it's the only remaining tab. If the deleted tab
+  /// is active, switches to the first available tab. Deletes from Firestore
+  /// and saves all remaining layouts to ensure consistency.
   Future<void> _onDeleteTab(
     DeleteTabEvent event,
     Emitter<LayoutState> emit,
   ) async {
     final updatedLayouts = Map<String, LayoutModel>.from(state.layouts);
-    
-    // Can't delete if it's the only tab
+
     if (updatedLayouts.length <= 1) {
       return;
     }
 
-    // Remove the tab
     updatedLayouts.remove(event.tabId);
 
-    // If deleting the active tab, switch to another tab
     String newActiveTabId = state.activeTabId;
     if (event.tabId == state.activeTabId && updatedLayouts.isNotEmpty) {
       newActiveTabId = updatedLayouts.keys.first;
@@ -250,17 +257,17 @@ class LayoutBloc extends Bloc<LayoutEvent, LayoutState> {
       activeTabId: newActiveTabId,
     ));
 
-    // Delete the tab from Firestore and save all remaining layouts
     try {
       await repository.deleteTab(event.tabId);
-      // Save all remaining layouts to ensure consistency
       await repository.saveAllLayouts(updatedLayouts);
     } catch (e) {
       emit(state.copyWith(error: 'Failed to delete tab: $e'));
     }
   }
 
-  /// Rename a tab/layout
+  /// Renames a tab/layout with a new name.
+  ///
+  /// Updates the layout's tab name and saves to Firestore.
   Future<void> _onRenameTab(
     RenameTabEvent event,
     Emitter<LayoutState> emit,
@@ -273,13 +280,13 @@ class LayoutBloc extends Bloc<LayoutEvent, LayoutState> {
     updatedLayouts[event.tabId] = updatedLayout;
 
     emit(state.copyWith(layouts: updatedLayouts));
-
-    // Save the renamed layout
     add(const SaveLayoutEvent());
   }
 
-
-  /// Save current layout to Firestore
+  /// Saves the current active layout to Firestore.
+  ///
+  /// Persists the active layout's state. Emits an error state if the save
+  /// operation fails.
   Future<void> _onSaveLayout(
     SaveLayoutEvent event,
     Emitter<LayoutState> emit,

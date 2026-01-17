@@ -1,24 +1,28 @@
 import 'package:flutter/material.dart';
 import 'widget_colors.dart';
 
-/// Widget Palette - Side menu with draggable widgets (A, B, C, D)
+/// Widget palette displaying draggable widget types.
+///
+/// Provides a collection of draggable widgets (A, B, C, D) that can be
+/// dragged onto the canvas. Supports both horizontal and vertical layouts
+/// for responsive design. Horizontal layout is used on small screens,
+/// vertical layout is used as a sidebar on larger screens.
 class WidgetPalette extends StatelessWidget {
   final bool isHorizontal;
-  
+
   const WidgetPalette({
     super.key,
     this.isHorizontal = false,
   });
 
-  // Available widget types
   static const List<String> widgetTypes = ['A', 'B', 'C', 'D'];
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity, // Takes full width of parent (sidebar or drawer)
+      width: double.infinity,
       decoration: const BoxDecoration(
-        color: Color(0xFFF1F5F9), // Cool slate gray
+        color: Color(0xFFF1F5F9),
       ),
       child: isHorizontal
           ? _buildHorizontalLayout(context)
@@ -26,16 +30,15 @@ class WidgetPalette extends StatelessWidget {
     );
   }
 
+  /// Builds a horizontal scrollable layout for small screens.
   Widget _buildHorizontalLayout(BuildContext context) {
     return Container(
-      height: 100, // Fixed height for horizontal palette
+      height: 100,
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        // Use AlwaysScrollableScrollPhysics to ensure it's always scrollable
-        // even when content doesn't overflow (for better UX with many widgets)
         physics: const AlwaysScrollableScrollPhysics(
-          parent: BouncingScrollPhysics(), // iOS-style bounce effect
+          parent: BouncingScrollPhysics(),
         ),
         itemCount: widgetTypes.length,
         itemBuilder: (context, index) {
@@ -44,7 +47,7 @@ class WidgetPalette extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             child: _DraggableWidgetItem(
               widgetType: widgetType,
-              size: 80, // Fixed size for horizontal layout
+              size: 80,
             ),
           );
         },
@@ -52,11 +55,11 @@ class WidgetPalette extends StatelessWidget {
     );
   }
 
+  /// Builds a vertical scrollable layout for sidebar display.
   Widget _buildVerticalLayout(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // List of draggable widgets
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.only(top: 16.0, left: 16.0, right: 16.0),
@@ -72,10 +75,15 @@ class WidgetPalette extends StatelessWidget {
   }
 }
 
-/// Individual draggable widget item in palette
+/// Individual draggable widget item in the palette.
+///
+/// Displays a colored square widget that can be dragged onto the canvas.
+/// Size is either fixed (for horizontal layout) or calculated as 60% of
+/// the container width (for vertical layout). Provides visual feedback
+/// during drag operations with elevated shadow and placeholder state.
 class _DraggableWidgetItem extends StatelessWidget {
   final String widgetType;
-  final double? size; // Optional fixed size for horizontal layout
+  final double? size;
 
   const _DraggableWidgetItem({
     required this.widgetType,
@@ -86,16 +94,12 @@ class _DraggableWidgetItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Use fixed size if provided, otherwise use 60% of container width
         final widgetSize = size ?? constraints.maxWidth * 0.6;
-        
+
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 8.0),
           child: Draggable<String>(
-            data: widgetType, // Data to pass when dragged
-            onDragEnd: (details) {
-              print('🔄 Drag ended for: $widgetType');
-            },
+            data: widgetType,
             feedback: Material(
               elevation: 8,
               borderRadius: BorderRadius.zero,

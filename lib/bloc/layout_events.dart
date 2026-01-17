@@ -1,7 +1,10 @@
 import 'package:equatable/equatable.dart';
 import '../models/widget_model.dart';
 
-/// Base class for all layout events
+/// Base class for all layout-related events.
+///
+/// All events extend [Equatable] for value-based equality comparison,
+/// enabling efficient state change detection in BLoC.
 abstract class LayoutEvent extends Equatable {
   const LayoutEvent();
 
@@ -9,11 +12,11 @@ abstract class LayoutEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Event: Add a new widget to the canvas
+/// Event to add a new widget to the active layout at specified coordinates.
 class AddWidgetEvent extends LayoutEvent {
-  final String type; // Widget type: "A", "B", "C", "D", etc.
-  final double x; // X position on canvas
-  final double y; // Y position on canvas
+  final String type;
+  final double x;
+  final double y;
 
   const AddWidgetEvent({
     required this.type,
@@ -25,7 +28,7 @@ class AddWidgetEvent extends LayoutEvent {
   List<Object?> get props => [type, x, y];
 }
 
-/// Event: Move a widget on the canvas
+/// Event to move a widget to a new position on the canvas.
 class MoveWidgetEvent extends LayoutEvent {
   final String widgetId;
   final double newX;
@@ -41,7 +44,7 @@ class MoveWidgetEvent extends LayoutEvent {
   List<Object?> get props => [widgetId, newX, newY];
 }
 
-/// Event: Resize a widget
+/// Event to resize a widget to new dimensions.
 class ResizeWidgetEvent extends LayoutEvent {
   final String widgetId;
   final double newWidth;
@@ -57,7 +60,7 @@ class ResizeWidgetEvent extends LayoutEvent {
   List<Object?> get props => [widgetId, newWidth, newHeight];
 }
 
-/// Event: Delete a widget from canvas
+/// Event to delete a widget from the active layout.
 class DeleteWidgetEvent extends LayoutEvent {
   final String widgetId;
 
@@ -67,17 +70,22 @@ class DeleteWidgetEvent extends LayoutEvent {
   List<Object?> get props => [widgetId];
 }
 
-/// Event: Load layouts from Firestore
+/// Event to load all layouts from Firestore.
+///
+/// Typically dispatched on app initialization or when refreshing layout data.
 class LoadLayoutsEvent extends LayoutEvent {
   const LoadLayoutsEvent();
 }
 
-/// Event: Save current layout to Firestore
+/// Event to save the current active layout to Firestore.
+///
+/// Automatically dispatched after widget modifications and tab operations
+/// to persist changes.
 class SaveLayoutEvent extends LayoutEvent {
   const SaveLayoutEvent();
 }
 
-/// Event: Switch to a different tab/layout
+/// Event to switch the active tab to a different layout.
 class SwitchTabEvent extends LayoutEvent {
   final String tabId;
 
@@ -87,7 +95,7 @@ class SwitchTabEvent extends LayoutEvent {
   List<Object?> get props => [tabId];
 }
 
-/// Event: Create a new tab/layout
+/// Event to create a new tab/layout with the specified ID and name.
 class CreateTabEvent extends LayoutEvent {
   final String tabId;
   final String tabName;
@@ -101,7 +109,7 @@ class CreateTabEvent extends LayoutEvent {
   List<Object?> get props => [tabId, tabName];
 }
 
-/// Event: Delete a tab/layout
+/// Event to delete a tab/layout from state and Firestore.
 class DeleteTabEvent extends LayoutEvent {
   final String tabId;
 
@@ -111,7 +119,7 @@ class DeleteTabEvent extends LayoutEvent {
   List<Object?> get props => [tabId];
 }
 
-/// Event: Rename a tab/layout
+/// Event to rename a tab/layout with a new name.
 class RenameTabEvent extends LayoutEvent {
   final String tabId;
   final String newName;

@@ -5,7 +5,7 @@ import '../bloc/layout_bloc.dart';
 import '../bloc/layout_events.dart';
 import '../models/widget_model.dart';
 
-/// Enum for resize handle types
+/// Types of resize handles positioned on widget corners and edges.
 enum ResizeHandleType {
   topLeft,
   topRight,
@@ -17,7 +17,14 @@ enum ResizeHandleType {
   left,
 }
 
-/// Resize handle widget - allows resizing widgets by dragging
+/// Resize handle widget for resizing canvas widgets by dragging.
+///
+/// Implements delta-based resize calculations that store initial widget state
+/// and compute new dimensions based on drag deltas. Handles enforce minimum size
+/// constraints (50px) and clamp to canvas bounds (1920x1080). Corner handles
+/// modify both dimensions and position, while edge handles modify one dimension
+/// and may adjust position. Blocks InteractiveViewer pan/zoom during resize
+/// operations to prevent gesture conflicts.
 class ResizeHandle extends StatefulWidget {
   final WidgetModel widget;
   final GlobalKey canvasKey;
@@ -42,10 +49,9 @@ class ResizeHandle extends StatefulWidget {
 
 class _ResizeHandleState extends State<ResizeHandle> {
   static const double _handleSize = 10.0;
-  static const double _minSize = 50.0; // Minimum widget size
-  
-  // Store initial state when resize starts for delta-based calculations
-  Offset? _startPanPosition; // Initial pan position in canvas coordinates
+  static const double _minSize = 50.0;
+
+  Offset? _startPanPosition;
   double? _startWidgetX;
   double? _startWidgetY;
   double? _startWidgetWidth;
@@ -53,7 +59,6 @@ class _ResizeHandleState extends State<ResizeHandle> {
 
   @override
   void dispose() {
-    // Clean up any ongoing resize operations
     _startPanPosition = null;
     _startWidgetX = null;
     _startWidgetY = null;
@@ -62,23 +67,23 @@ class _ResizeHandleState extends State<ResizeHandle> {
     super.dispose();
   }
 
-  /// Convert global screen coordinates to canvas coordinates
-  /// Accounts for InteractiveViewer zoom transformation
+  /// Converts global screen coordinates to canvas-local coordinates.
+  ///
+  /// Accounts for InteractiveViewer zoom and pan transformations by using
+  /// [RenderBox.globalToLocal], which automatically applies the transformation
+  /// matrix.
   Offset _globalToCanvas(Offset globalPosition) {
-    final canvasRenderBox = widget.canvasKey.currentContext?.findRenderObject() as RenderBox?;
+    final canvasRenderBox =
+        widget.canvasKey.currentContext?.findRenderObject() as RenderBox?;
     if (canvasRenderBox == null) return Offset.zero;
-    
-    // Convert global to local canvas coordinates
-    // globalToLocal accounts for the InteractiveViewer zoom transformation
-    final localPosition = canvasRenderBox.globalToLocal(globalPosition);
-    
-    return localPosition;
+    return canvasRenderBox.globalToLocal(globalPosition);
   }
 
+  /// Returns the handle position relative to the widget's top-left corner.
   Offset _getHandlePosition() {
     final w = widget.widget.width;
     final h = widget.widget.height;
-    
+
     switch (widget.handleType) {
       case ResizeHandleType.topLeft:
         return const Offset(0, 0);
@@ -99,6 +104,7 @@ class _ResizeHandleState extends State<ResizeHandle> {
     }
   }
 
+  /// Returns the appropriate mouse cursor for the handle type.
   SystemMouseCursor _getCursor() {
     switch (widget.handleType) {
       case ResizeHandleType.topLeft:
@@ -116,8 +122,8 @@ class _ResizeHandleState extends State<ResizeHandle> {
     }
   }
 
+  /// Stores initial widget state when resize begins.
   void _onPanStart(Offset globalPosition) {
-    // Store initial state for delta-based calculations
     _startPanPosition = _globalToCanvas(globalPosition);
     _startWidgetX = widget.widget.x;
     _startWidgetY = widget.widget.y;
@@ -125,32 +131,33 @@ class _ResizeHandleState extends State<ResizeHandle> {
     _startWidgetHeight = widget.widget.height;
   }
 
+  /// Calculates new widget dimensions and position based on drag delta.
+  ///
+  /// Applies handle-specific resize logic: corner handles modify both dimensions
+  /// and position, edge handles modify one dimension and may adjust position.
+  /// Enforces minimum size constraints and canvas bounds, adjusting position
+  /// when necessary to maintain constraints. Dispatches [ResizeWidgetEvent] and
+  /// [MoveWidgetEvent] to the BLoC for state updates.
   void _onPanUpdate(Offset globalPosition) {
-    // Check if widget is still mounted
     if (!mounted) return;
-    
-    // Ensure we have initial state
-    if (_startPanPosition == null || 
-        _startWidgetX == null || 
-        _startWidgetY == null || 
-        _startWidgetWidth == null || 
+
+    if (_startPanPosition == null ||
+        _startWidgetX == null ||
+        _startWidgetY == null ||
+        _startWidgetWidth == null ||
         _startWidgetHeight == null) {
       return;
     }
-    
-    // Convert current position to canvas coordinates
+
     final currentCanvasPos = _globalToCanvas(globalPosition);
-    
-    // Calculate delta from start position
     final deltaX = currentCanvasPos.dx - _startPanPosition!.dx;
     final deltaY = currentCanvasPos.dy - _startPanPosition!.dy;
-    
-    // Calculate new dimensions based on handle type using deltas
+
     double newWidth = _startWidgetWidth!;
     double newHeight = _startWidgetHeight!;
     double newX = _startWidgetX!;
     double newY = _startWidgetY!;
-    
+
     switch (widget.handleType) {
       case ResizeHandleType.topLeft:
         newWidth = _startWidgetWidth! - deltaX;
@@ -187,37 +194,31 @@ class _ResizeHandleState extends State<ResizeHandle> {
         newX = _startWidgetX! + deltaX;
         break;
     }
-    
-    // Apply minimum size constraints
+
     if (newWidth < _minSize) {
       newWidth = _minSize;
-      // Adjust position if handle is on the left side
-      if (widget.handleType == ResizeHandleType.topLeft || 
+      if (widget.handleType == ResizeHandleType.topLeft ||
           widget.handleType == ResizeHandleType.bottomLeft ||
           widget.handleType == ResizeHandleType.left) {
         newX = _startWidgetX! + (_startWidgetWidth! - _minSize);
       }
     }
-    
+
     if (newHeight < _minSize) {
       newHeight = _minSize;
-      // Adjust position if handle is on the top side
-      if (widget.handleType == ResizeHandleType.topLeft || 
+      if (widget.handleType == ResizeHandleType.topLeft ||
           widget.handleType == ResizeHandleType.topRight ||
           widget.handleType == ResizeHandleType.top) {
         newY = _startWidgetY! + (_startWidgetHeight! - _minSize);
       }
     }
-    
-    // Fixed canvas dimensions for bounds checking
+
     const fixedCanvasWidth = 1920.0;
     const fixedCanvasHeight = 1080.0;
-    
-    // Ensure non-negative positions
+
     newX = newX < 0 ? 0 : newX;
     newY = newY < 0 ? 0 : newY;
-    
-    // Ensure widget doesn't exceed canvas bounds
+
     if (newX + newWidth > fixedCanvasWidth) {
       newWidth = fixedCanvasWidth - newX;
       if (newWidth < _minSize) {
@@ -225,7 +226,7 @@ class _ResizeHandleState extends State<ResizeHandle> {
         newX = fixedCanvasWidth - _minSize;
       }
     }
-    
+
     if (newY + newHeight > fixedCanvasHeight) {
       newHeight = fixedCanvasHeight - newY;
       if (newHeight < _minSize) {
@@ -233,15 +234,12 @@ class _ResizeHandleState extends State<ResizeHandle> {
         newY = fixedCanvasHeight - _minSize;
       }
     }
-    
-    // Clamp width and height to canvas bounds
+
     newWidth = newWidth.clamp(_minSize, fixedCanvasWidth - newX);
     newHeight = newHeight.clamp(_minSize, fixedCanvasHeight - newY);
-    
-    // Check mounted again before accessing context
+
     if (!mounted) return;
-    
-    // Send ResizeWidgetEvent to BLoC
+
     context.read<LayoutBloc>().add(
           ResizeWidgetEvent(
             widgetId: widget.widget.id,
@@ -249,8 +247,7 @@ class _ResizeHandleState extends State<ResizeHandle> {
             newHeight: newHeight,
           ),
         );
-    
-    // If position changed (for corner/edge handles that move the widget), send MoveWidgetEvent
+
     if (newX != widget.widget.x || newY != widget.widget.y) {
       if (!mounted) return;
       context.read<LayoutBloc>().add(
@@ -263,8 +260,8 @@ class _ResizeHandleState extends State<ResizeHandle> {
     }
   }
 
+  /// Cleans up resize state when drag ends.
   void _onPanEnd() {
-    // Reset initial state
     _startPanPosition = null;
     _startWidgetX = null;
     _startWidgetY = null;
@@ -275,27 +272,19 @@ class _ResizeHandleState extends State<ResizeHandle> {
   @override
   Widget build(BuildContext context) {
     final position = _getHandlePosition();
-    final hitAreaSize = _handleSize * 2; // 20x20 hit area
-    
-    // Account for the 10px padding added to Stack in DraggableCanvasWidget
+    final hitAreaSize = _handleSize * 2;
     const stackPadding = 10.0;
-    
+
     return Positioned(
-      left: position.dx - (hitAreaSize / 2) + stackPadding, // Center hit area, account for Stack padding
-      top: position.dy - (hitAreaSize / 2) + stackPadding,  // Center hit area, account for Stack padding
+      left: position.dx - (hitAreaSize / 2) + stackPadding,
+      top: position.dy - (hitAreaSize / 2) + stackPadding,
       child: Listener(
-        // Listener captures ALL pointer events in this area, even outside widget bounds
-        // This ensures the outer white border part captures gestures
-        onPointerDown: (event) {
-          // Capture pointer to prevent InteractiveViewer from getting it
-          // This prevents InteractiveViewer from panning/zooming when resizing
-        },
-        behavior: HitTestBehavior.opaque, // Critical: ensures full area captures events and blocks InteractiveViewer
+        onPointerDown: (_) {},
+        behavior: HitTestBehavior.opaque,
         child: MouseRegion(
-          // MouseRegion covers the FULL 20x20 hit area so cursor appears everywhere
           cursor: _getCursor(),
           child: GestureDetector(
-            behavior: HitTestBehavior.opaque, // Ensure full hit area captures gestures
+            behavior: HitTestBehavior.opaque,
             onPanStart: (details) {
               widget.onResizeStart();
               _onPanStart(details.globalPosition);
@@ -305,7 +294,7 @@ class _ResizeHandleState extends State<ResizeHandle> {
                 _onPanUpdate(details.globalPosition);
               }
             },
-            onPanEnd: (details) {
+            onPanEnd: (_) {
               if (mounted) {
                 _onPanEnd();
                 widget.onResizeEnd();
@@ -318,17 +307,15 @@ class _ResizeHandleState extends State<ResizeHandle> {
               }
             },
             child: Container(
-              // Larger hit area for easier interaction (20x20)
-              // This container MUST be opaque for hit testing to work beyond widget bounds
               width: hitAreaSize,
               height: hitAreaSize,
-              color: Colors.transparent, // Transparent but still captures gestures
+              color: Colors.transparent,
               alignment: Alignment.center,
               child: Container(
                 width: _handleSize,
                 height: _handleSize,
                 decoration: BoxDecoration(
-                  color: Colors.grey[600], // Darker gray fill
+                  color: Colors.grey[600],
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: Colors.white,
