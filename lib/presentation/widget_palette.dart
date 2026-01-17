@@ -32,6 +32,11 @@ class WidgetPalette extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
+        // Use AlwaysScrollableScrollPhysics to ensure it's always scrollable
+        // even when content doesn't overflow (for better UX with many widgets)
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(), // iOS-style bounce effect
+        ),
         itemCount: widgetTypes.length,
         itemBuilder: (context, index) {
           final widgetType = widgetTypes[index];

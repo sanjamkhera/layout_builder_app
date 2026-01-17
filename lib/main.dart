@@ -27,6 +27,24 @@ void main() async {
     }
   } catch (e) {
     print('❌ Firebase initialization/authentication error: $e');
+    // Check if it's the configuration-not-found error (usually means Anonymous Auth isn't enabled)
+    if (e.toString().contains('configuration-not-found')) {
+      print('');
+      print('⚠️  SOLUTION REQUIRED: Enable Anonymous Authentication in Firebase Console');
+      print('   This error occurs because Anonymous Authentication is not enabled.');
+      print('');
+      print('   Steps to fix:');
+      print('   1. Go to: https://console.firebase.google.com/');
+      print('   2. Select project: layout-builder-app');
+      print('   3. Navigate to: Authentication → Sign-in method');
+      print('   4. Click on "Anonymous" provider');
+      print('   5. Enable it (toggle switch)');
+      print('   6. Click "Save"');
+      print('   7. Restart the app');
+      print('');
+      print('   Note: The app will continue to run, but user identification will not work');
+      print('   until Anonymous Authentication is enabled.');
+    }
   }
   runApp(const MyApp());
 }
