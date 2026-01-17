@@ -280,17 +280,13 @@ dev_dependencies:
 
 ## 🚀 Getting Started
 
-### Prerequisites
-
-- Flutter SDK (3.10.7+)
-- Firebase project set up
-- FlutterFire CLI installed
+**Flutter SDK Version:** 3.10.7+
 
 ### Setup
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/sanjamkhera/layout_builder_app
    cd layout_builder_app
    ```
 
@@ -298,18 +294,6 @@ dev_dependencies:
    ```bash
    flutter pub get
    ```
-
-3. **Enable Anonymous Authentication in Firebase Console**
-   
-   Before running the app, you must enable Anonymous Authentication:
-   
-   1. Go to [Firebase Console](https://console.firebase.google.com/)
-   2. Select your project: `layout-builder-app`
-   3. Navigate to: **Authentication** → **Sign-in method**
-   4. Click on **Anonymous** provider
-   5. Enable it and click **Save**
-   
-   This allows the app to automatically create unique user IDs for each device.
 
 3. **Run the app**
    
